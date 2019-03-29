@@ -1,4 +1,6 @@
-export CUDA_VISIBLE_DEVICES=1
+export FLAGS_eager_delete_tensor_gb=0.0 
+export FLAGS_fast_eager_deletion_mode=1
+export CUDA_VISIBLE_DEVICES=3
 
 python run.py   \
 --trainset 'data/preprocessed/trainset/search.train.json' \
@@ -10,11 +12,11 @@ python run.py   \
 --vocab_dir 'data/vocab' \
 --elmo_dir 'data/vocabulary_min5k.txt' \
 --use_gpu true \
---save_dir ./models \
+--save_dir ./models_elmo_16 \
 --pass_num 10 \
 --learning_rate 0.001 \
 --batch_size 16 \
---embed_size 300 \
+--embed_size 128 \
 --hidden_size 150 \
 --max_p_num 5 \
 --max_p_len 500 \

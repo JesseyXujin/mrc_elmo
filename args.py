@@ -93,7 +93,7 @@ def parse_args():
     parser.add_argument(
         "--dev_interval",
         type=int,
-        default=1000,
+        default=500,
         help="cal dev loss every n batches."
         "(default: %(default)d)")
     parser.add_argument('--optim', default='adam', help='optimizer type')

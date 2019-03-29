@@ -403,7 +403,7 @@ def train(logger, args):
             else:
                 obj_func = avg_cost
                 optimizer.minimize(obj_func)
-
+            obj_func.persistable=True
             #ipdb.set_trace()
             # initialize parameters
             place = core.CUDAPlace(0) if args.use_gpu else core.CPUPlace()
@@ -430,10 +430,14 @@ def train(logger, args):
             feeder = fluid.DataFeeder(feed_list, place)
             #ipdb.set_trace()
             logger.info('Training the model...')
+            build_strategy = fluid.BuildStrategy()
+            #build_strategy.enable_inplace = False
+            build_strategy.memory_optimize = False
             parallel_executor = fluid.ParallelExecutor(
                 main_program=main_program,
                 use_cuda=bool(args.use_gpu),
-                loss_name=avg_cost.name)
+                loss_name=avg_cost.name,
+                build_strategy=build_strategy)
             print_para(main_program, parallel_executor, logger, args)
 
             for pass_id in range(1, args.pass_num + 1):

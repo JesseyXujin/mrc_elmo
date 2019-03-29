@@ -30,20 +30,18 @@ hidden_size=4096
 para_init=False
 vocab_size=52445
 emb_size=512
+modify =1
 
-def dropout(input, test_mode, args):
+def dropout(input):
     dropout1=0.1
-    test_mode=False
-    random_seed=123
-    if dropout1 and (not test_mode):
-        return layers.dropout(
+    if modify == 1:
+       dropout1=0.5
+    return layers.dropout(
             input,
             dropout_prob=dropout1,
             dropout_implementation="upscale_in_train",
             seed=random_seed,
             is_test=False)
-    else:
-        return input
 
 
 def lstmp_encoder(input_seq, gate_size, h_0, c_0, para_name, proj_size, test_mode, args):
@@ -58,7 +56,8 @@ def lstmp_encoder(input_seq, gate_size, h_0, c_0, para_name, proj_size, test_mod
     else:
         init = None
         init_b = None
-    input_seq = dropout(input_seq, test_mode, args)
+    if modify==0:
+        input_seq = dropout(input_seq)
     input_proj = layers.fc(input=input_seq,
                            param_attr=fluid.ParamAttr(
                                name=para_name + '_gate_w', initializer=init),
@@ -106,7 +105,8 @@ def encoder_1(x_emb,
     projs = []
     num_layers=2
     for i in range(num_layers):
-        rnn_input = dropout(rnn_input, False, args)
+        if modify==0:
+            rnn_input = dropout(rnn_input)
         if init_hidden and init_cell:
             h0 = layers.squeeze(
                 layers.slice(
@@ -124,7 +124,8 @@ def encoder_1(x_emb,
         rnn_out_ori = rnn_out
         if i > 0:
             rnn_out = rnn_out + rnn_input
-        rnn_out = dropout(rnn_out, test_mode, args)
+        if modify==0:
+            rnn_out = dropout(rnn_out)
         rnn_out.stop_gradient = True
         rnn_outs.append(rnn_out)
         #rnn_outs_ori.stop_gradient = True
@@ -140,15 +141,13 @@ def elmo_encoder(x_emb):
     emb_size = 512
     proj_size = 512
     hidden_size = 4096
-    batch_size = 16
+    batch_size = 32
     num_layers = 2
     num_steps = 20
 
     lstm_outputs = []
 
-    #x_f = layers.data(name="x_f", shape=[1], dtype='int64', lod_level=1)
-
-    #x_b = layers.sequence_reverse(x_f, name='x_b')
+    x_emb_r=fluid.layers.sequence_reverse(x_emb, name=None)
 
     fw_hiddens, fw_hiddens_ori = encoder_1(
         x_emb,
@@ -157,11 +156,13 @@ def elmo_encoder(x_emb):
         para_name='fw_',
         args=None)
     bw_hiddens, bw_hiddens_ori = encoder_1(
-         x_emb,
+         x_emb_r,
          vocab_size,
          emb_size,
          para_name='bw_',
          args=None)
     embedding=layers.concat(input=[fw_hiddens,bw_hiddens],axis=1)
+    if modify==1:
+         embedding = dropout(embedding)
     embedding.stop_gradient=True
     return embedding
