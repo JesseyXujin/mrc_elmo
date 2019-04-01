@@ -1,3 +1,4 @@
+export FLAGS_fraction_of_gpu_memory_to_use=0
 export FLAGS_eager_delete_tensor_gb=0.0 
 export FLAGS_fast_eager_deletion_mode=1
 export CUDA_VISIBLE_DEVICES=3
@@ -19,7 +20,7 @@ python run.py   \
 --embed_size 128 \
 --hidden_size 150 \
 --max_p_num 5 \
---max_p_len 500 \
+--max_p_len 400 \
 --max_q_len 60 \
 --max_a_len 200 \
 --weight_decay 0.0001 \
