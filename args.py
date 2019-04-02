@@ -69,6 +69,11 @@ def parse_args():
         default=True,
         help="Whether to use gpu. (default: %(default)d)")
     parser.add_argument(
+        "--elmo_l2_coef",
+        type=float,
+        default=0.001,
+        help="Weight decay. (default: %(default)f)")
+    parser.add_argument(
         "--save_dir",
         type=str,
         default="model",

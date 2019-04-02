@@ -409,7 +409,7 @@ def train(logger, args):
                 exe.run(startup_prog)
                 embedding_para = fluid.global_scope().find_var(
                     'embedding_para_1').get_tensor()
-                embedding_para.set(vocab.embeddings.astype(np.float32), place)
+                #embedding_para.set(vocab.embeddings.astype(np.float32), place)
             #load elmo data
             if args.elmo==True:
                 assert args.pretrain_elmo_model_path != "", "[FATAL ERROR] Please sepecify pretrained elmo model path"
