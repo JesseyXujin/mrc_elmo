@@ -109,7 +109,8 @@ def parse_args():
     parser.add_argument('--para_print', action='store_true')
     parser.add_argument('--drop_rate', type=float, default=0.0)
     parser.add_argument('--random_seed', type=int, default=123)
-    parser.add_argument('--elmo', action='store_false', default=True)
+    parser.add_argument('--elmo', action='store_true')
+    parser.add_argument('--pretrain_elmo_model_path', type=str, default="")
     parser.add_argument(
         '--log_path',
         help='path of the log file. If not set, logs are printed to console')
@@ -126,7 +127,7 @@ def parse_args():
         action='store_true',
         help="If set, run the task with continuous evaluation logs.")
     parser.add_argument(
-        "--elmo_dir",
+        "--elmo_dict_dir",
         default='data/vocabulary_min5k.txt',
         help="If set, load elmo dict.")
     args = parser.parse_args()
