@@ -338,8 +338,6 @@ def l2_loss(train_prog):
     return fluid.layers.sums(para_sum) * 0.5
 
 
-
-
 def train(logger, args):
     logger.info('Load data_set and vocab...')
     with open(os.path.join(args.vocab_dir, 'vocab.data'), 'rb') as fin:
