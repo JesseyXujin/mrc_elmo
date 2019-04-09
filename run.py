@@ -330,11 +330,27 @@ def validation(inference_program, avg_cost, s_probs, e_probs, match, feed_order,
 
 
 def l2_loss(train_prog):
+    excluded_name = ["lstmp_0", "lstmp_1", "lstmp_2", "lstmp_3", "bw_layer1_gate_w", "bw_layer2_gate_w", "fw_layer1_gate_w", "fw_layer2_gate_w", "embedding_para"]
     param_list = train_prog.block(0).all_parameters()
     para_sum = []
+    print("added to l2loss")
     for para in param_list:
-        para_mul = fluid.layers.elementwise_mul(x=para, y=para, axis=0)
-        para_sum.append(fluid.layers.reduce_sum(input=para_mul, dim=None))
+        add = True
+
+        if para.name.endswith("b"):
+            add = False
+
+        for name in excluded_name:
+            if name in para.name and para.name != "embedding_para_1":
+                add = False
+                continue
+        
+        if add:
+            print("add %s to l2_loss " % para.name)
+            para_mul = fluid.layers.elementwise_mul(x=para, y=para, axis=0)
+            para_sum.append(fluid.layers.reduce_sum(input=para_mul, dim=None))
+        else:
+            print("exclude %s from l2_loss" % para.name)
     return fluid.layers.sums(para_sum) * 0.5
 
 
@@ -412,6 +428,8 @@ def train(logger, args):
             if args.elmo==True:
                 assert args.pretrain_elmo_model_path != "", "[FATAL ERROR] Please sepecify pretrained elmo model path"
                 def if_exist(var):
+                    if "learning_rate_0" == var.name:
+                        return False
                     path = os.path.join(args.pretrain_elmo_model_path, var.name)
                     exist = os.path.exists(path)
                     if exist:
