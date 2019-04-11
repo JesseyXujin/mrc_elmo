@@ -290,10 +290,10 @@ def rc_model(hidden_size, vocab, args):
         if args.elmo==True:
             q_emb_elmo = drnn.step_input(q_embs_elmo)
             p_emb_elmo = drnn.step_input(p_embs_elmo)
-            p_encs_elmo= elmo_encoder(p_emb_elmo)
-            q_encs_elmo= elmo_encoder(q_emb_elmo)
-            p_emb=layers.concat(input=[p_emb, p_emb_elmo], axis=1)
-            q_emb=layers.concat(input=[q_emb, q_emb_elmo], axis=1)      
+            p_encs_elmo= elmo_encoder(p_emb_elmo, args.elmo_l2_coef)
+            q_encs_elmo= elmo_encoder(q_emb_elmo, args.elmo_l2_coef)
+            p_emb=layers.concat(input=[p_emb, p_encs_elmo], axis=1)
+            q_emb=layers.concat(input=[q_emb, q_encs_elmo], axis=1)
 
         p_enc = encoder(p_emb,'p_enc', hidden_size, args)
         q_enc = encoder(q_emb, 'q_enc', hidden_size, args)

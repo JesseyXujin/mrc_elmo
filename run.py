@@ -330,22 +330,29 @@ def validation(inference_program, avg_cost, s_probs, e_probs, match, feed_order,
 
 
 def l2_loss(train_prog):
+    excluded_name = ["lstmp_0", "lstmp_1", "lstmp_2", "lstmp_3", "bw_layer1_gate_w", "bw_layer2_gate_w", "fw_layer1_gate_w", "fw_layer2_gate_w", "embedding_para"]
     param_list = train_prog.block(0).all_parameters()
     para_sum = []
+    print("added to l2loss")
     for para in param_list:
-        para_mul = fluid.layers.elementwise_mul(x=para, y=para, axis=0)
-        para_sum.append(fluid.layers.reduce_sum(input=para_mul, dim=None))
+        add = True
+
+        if para.name.endswith("b"):
+            add = False
+
+        for name in excluded_name:
+            if name in para.name and para.name != "embedding_para_1":
+                add = False
+                continue
+        
+        if add:
+            print("add %s to l2_loss " % para.name)
+            para_mul = fluid.layers.elementwise_mul(x=para, y=para, axis=0)
+            para_sum.append(fluid.layers.reduce_sum(input=para_mul, dim=None))
+        else:
+            print("exclude %s from l2_loss" % para.name)
     return fluid.layers.sums(para_sum) * 0.5
 
-
-def if_exist(var):
-    path = os.path.join(src_pretrain_model_path, var.name)
-    exist = os.path.exists(path)
-    if exist:
-        print('Load model: %s' % path)
-    return exist
-
-src_pretrain_model_path = '490001'
 
 def train(logger, args):
     logger.info('Load data_set and vocab...')
@@ -357,7 +364,7 @@ def train(logger, args):
         logger.info('vocab size is {} and embed dim is {}'.format(vocab.size(
         ), vocab.embed_dim))
     brc_data = BRCDataset(args.max_p_num, args.max_p_len, args.max_q_len,
-                          args.elmo,args.elmo_dir,train_files=args.trainset,dev_files= args.devset)
+                          args.elmo, args.elmo_dict_dir, train_files=args.trainset, dev_files= args.devset)
     logger.info('Converting text into ids...')
     brc_data.convert_to_ids(vocab)
     logger.info('Initialize the model...')
@@ -416,11 +423,19 @@ def train(logger, args):
                 exe.run(startup_prog)
                 embedding_para = fluid.global_scope().find_var(
                     'embedding_para_1').get_tensor()
-                embedding_para.set(vocab.embeddings.astype(np.float32), place)
+                #embedding_para.set(vocab.embeddings.astype(np.float32), place)
             #load elmo data
             if args.elmo==True:
-                src_pretrain_model_path = '490001'
-                fluid.io.load_vars(executor=exe, dirname=src_pretrain_model_path, predicate=if_exist, main_program=main_program) 
+                assert args.pretrain_elmo_model_path != "", "[FATAL ERROR] Please sepecify pretrained elmo model path"
+                def if_exist(var):
+                    if "learning_rate_0" == var.name:
+                        return False
+                    path = os.path.join(args.pretrain_elmo_model_path, var.name)
+                    exist = os.path.exists(path)
+                    if exist:
+                        print('Load model: %s' % path)
+                    return exist
+                fluid.io.load_vars(executor=exe, dirname=args.pretrain_elmo_model_path, predicate=if_exist, main_program=main_program)
             # prepare data
             feed_list = [
                 main_program.global_block().var(var_name)

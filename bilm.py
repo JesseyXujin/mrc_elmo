@@ -20,6 +20,7 @@ import paddle.fluid.layers as layers
 import paddle.fluid as fluid
 import numpy as np
 import ipdb
+
 test_mode=False
 random_seed=123
 para_init=False
@@ -30,17 +31,17 @@ hidden_size=4096
 para_init=False
 vocab_size=52445
 emb_size=512
-modify =1
+modify = 1
+DEBUG = 0
 
 def dropout(input):
     dropout1=0.1
     if modify == 1:
-       dropout1=0.5
+       dropout1=0.2
     return layers.dropout(
             input,
             dropout_prob=dropout1,
             dropout_implementation="upscale_in_train",
-            seed=random_seed,
             is_test=False)
 
 
@@ -133,17 +134,62 @@ def encoder_1(x_emb,
     #ipdb.set_trace()
      #layers.Print(input_seq, message='input_seq', summarize=10)
     #layers.Print(rnn_outs[-1], message='rnn_outs', summarize=10)
-    return  rnn_outs[-1], rnn_outs_ori
+    return  rnn_outs, rnn_outs_ori
 
 
-def elmo_encoder(x_emb):
+def weight_layers(lm_embeddings, name="", l2_coef=0.0):
+    '''
+    Weight the layers of a biLM with trainable scalar weights to
+    compute ELMo representations.
+
+    Input:
+        lm_embeddings(list): representations of 2 layers from biLM.
+        name = a string prefix used for the trainable variable names
+        l2_coef: the l2 regularization coefficient $\lambda$.
+            Pass None or 0.0 for no regularization.
+
+    Output:
+        weighted_lm_layers: weighted embeddings form biLM
+    '''
+
+    n_lm_layers = len(lm_embeddings)
+    W = layers.create_parameter([n_lm_layers, ], dtype="float32", name=name+"ELMo_w",
+                                attr=fluid.ParamAttr(name=name+"ELMo_w",
+                                                     initializer=fluid.initializer.Constant(0.0),
+                                                     regularizer=fluid.regularizer.L2Decay(l2_coef)))
+    if DEBUG:
+        fluid.layers.Print(lm_embeddings[0], first_n=1, summarize=10, message="lm_embeddings_0")
+        fluid.layers.Print(lm_embeddings[1], first_n=1, summarize=10, message="lm_embeddings_1")
+        fluid.layers.Print(lm_embeddings[2], first_n=1, summarize=10, message="lm_embeddings_2")
+        fluid.layers.Print(W, first_n=1, summarize=10, message="weights_before_sotfmax")
+    normed_weights = layers.softmax( W + 1.0 / n_lm_layers)
+
+    if DEBUG:
+        fluid.layers.Print(normed_weights, first_n=1, summarize=10, message="normed_weights")
+    splited_normed_weights = layers.split(normed_weights, n_lm_layers, dim=0)
+
+    # compute the weighted, normalized LM activations
+    pieces = []
+    for w, t in zip(splited_normed_weights, lm_embeddings):
+        pieces.append(t * w)
+    sum_pieces = layers.sums(pieces)
+    if DEBUG:
+        fluid.layers.Print(sum_pieces, first_n=1, summarize=10, message="weighted_mebeddings")
+
+    # scale the weighted sum by gamma
+    gamma = layers.create_parameter([1], dtype="float32", name=name+"ELMo_gamma",
+                                attr=fluid.ParamAttr(name=name+"ELMo_gamma",
+                                                     initializer=fluid.initializer.Constant(1.0)))
+    weighted_lm_layers = sum_pieces * gamma
+    if DEBUG:
+        fluid.layers.Print(gamma, first_n=1, summarize=10, message="gamma")
+        fluid.layers.Print(weighted_lm_layers, first_n=1, summarize=10, message="weighted_mebeddings_multi_gamma")
+
+    return weighted_lm_layers
+
+
+def elmo_encoder(x_emb, elmo_l2_coef):
     #args modify
-    emb_size = 512
-    proj_size = 512
-    hidden_size = 4096
-    batch_size = 32
-    num_layers = 2
-    num_steps = 20
 
     lstm_outputs = []
 
@@ -161,8 +207,17 @@ def elmo_encoder(x_emb):
          emb_size,
          para_name='bw_',
          args=None)
-    embedding=layers.concat(input=[fw_hiddens,bw_hiddens],axis=1)
-    if modify==1:
-         embedding = dropout(embedding)
-    embedding.stop_gradient=True
-    return embedding
+
+    num_layers = len(fw_hiddens_ori)
+    token_embeddings = layers.concat(input=[x_emb, x_emb], axis=1)
+    token_embeddings.stop_gradient = True
+    concate_embeddings = [token_embeddings]
+    for index in range(num_layers):
+        #embedding = layers.concat(input = [fw_hiddens[index], bw_hiddens[index]], axis=1)
+        embedding = layers.concat(input = [fw_hiddens_ori[index], bw_hiddens_ori[index]], axis=1)
+        if modify == 1:
+            embedding = dropout(embedding)
+        embedding.stop_gradient=True
+        concate_embeddings.append(embedding)
+    weighted_meb = weight_layers(concate_embeddings, l2_coef=elmo_l2_coef)
+    return weighted_meb

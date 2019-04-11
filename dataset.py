@@ -189,7 +189,7 @@ class BRCDataset(object):
             passade_idx_offset = sum(batch_data['passage_num'])
             batch_data['passage_num'].append(count)
             gold_passage_offset = 0
-            if 'answer_passages' in sample and len(sample['answer_passages']):
+            if 'answer_passages' in sample and len(sample['answer_passages']) and sample['answer_passages'][0] < len(sample['documents']):
                 for i in range(sample['answer_passages'][0]):
                     gold_passage_offset += len(batch_data['passage_token_ids'][
                         passade_idx_offset + i])
@@ -240,9 +240,7 @@ class BRCDataset(object):
             if data_set is None:
                 continue
             for sample in data_set:
-                #import pdb;pdb.set_trace()
-                sample['question_token_ids'] = vocab.convert_to_ids(sample[
-                    'question_tokens'])
+                sample['question_token_ids'] = vocab.convert_to_ids(sample['question_tokens'])
                 if self.elmo==True:
                     sample['question_token_ids_elmo']=[]
                     for label in sample['question_tokens']:
@@ -262,6 +260,7 @@ class BRCDataset(object):
                             if self.elmo_dict.get(label) is not None:
                                 iid = self.elmo_dict.get(label)
                             passage['passage_token_ids_elmo'].append(iid)
+       
 
     def gen_mini_batches(self, set_name, batch_size, pad_id, shuffle=True):
         """
